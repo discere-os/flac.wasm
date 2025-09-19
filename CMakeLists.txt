@@ -8,6 +8,10 @@ project(FLAC VERSION 1.5.0) # HOMEPAGE_URL "https://www.xiph.org/flac/")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+# WebAssembly build options for dual module system
+option(BUILD_SIDE_MODULE "Build as SIDE_MODULE for production" OFF)
+option(BUILD_MAIN_MODULE "Build as MAIN_MODULE for testing" OFF)
+
 option(BUILD_CXXLIBS "Build libFLAC++" ON)
 option(BUILD_PROGRAMS "Build and install programs" ON)
 option(BUILD_EXAMPLES "Build and install examples" ON)
@@ -23,6 +27,35 @@ option(BUILD_SHARED_LIBS "Build shared instead of static libraries" OFF)
 option(ENABLE_MULTITHREADING "Enable multithreading if pthread or C11 threads are available" ON)
 
 set(VERSION ${PROJECT_VERSION})
+
+# WebAssembly dual build configuration
+if(BUILD_SIDE_MODULE)
+    message(STATUS "Configuring SIDE_MODULE build for production")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -msimd128")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -msimd128")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sSIDE_MODULE=1")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sSTANDALONE_WASM=1")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sEXPORTED_FUNCTIONS=[_FLAC__stream_decoder_new,_FLAC__stream_decoder_delete,_FLAC__stream_decoder_init_stream,_FLAC__stream_decoder_process_single,_FLAC__stream_decoder_process_until_end_of_metadata,_FLAC__stream_decoder_process_until_end_of_stream,_FLAC__stream_encoder_new,_FLAC__stream_encoder_delete,_FLAC__stream_encoder_init_stream,_FLAC__stream_encoder_process,_FLAC__stream_encoder_process_interleaved,_FLAC__stream_encoder_finish,_malloc,_free]")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sDISABLE_EXCEPTION_CATCHING=1")
+    add_definitions(-DFLAC_SIDE_MODULE=1)
+endif()
+
+if(BUILD_MAIN_MODULE)
+    message(STATUS "Configuring MAIN_MODULE build for testing")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msimd128")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msimd128")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sMODULARIZE=1")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sEXPORT_ES6=1")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sEXPORT_NAME=FLACModule")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sEXPORTED_FUNCTIONS=[_FLAC__stream_decoder_new,_FLAC__stream_decoder_delete,_FLAC__stream_decoder_init_stream,_FLAC__stream_decoder_process_single,_FLAC__stream_decoder_process_until_end_of_metadata,_FLAC__stream_decoder_process_until_end_of_stream,_FLAC__stream_encoder_new,_FLAC__stream_encoder_delete,_FLAC__stream_encoder_init_stream,_FLAC__stream_encoder_process,_FLAC__stream_encoder_process_interleaved,_FLAC__stream_encoder_finish,_malloc,_free]")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sEXPORTED_RUNTIME_METHODS=[cwrap,ccall,UTF8ToString,HEAPU8,HEAP16,HEAP32,HEAPF32]")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sALLOW_MEMORY_GROWTH=1")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sINITIAL_MEMORY=67108864")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sENVIRONMENT=web,webview,worker")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sNODEJS_CATCH_EXIT=0")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sNODEJS_CATCH_REJECTION=0")
+    add_definitions(-DFLAC_MAIN_MODULE=1)
+endif()
 
 if(NOT UNIX)
     # This is to make sure testing works when building with a DLL
